@@ -7,7 +7,7 @@
 
 ####### Declarations #######
 
-SCRIPT_VERSION="0.1"
+SCRIPT_VERSION="0.2"
 
 # determine the operating mode of the script
 FULL_MODE="0"
@@ -25,7 +25,7 @@ RELEASE_BRANCH=""
 
 REPO_CMD="$(which repo)"
 PROJECT_URL="https://github.com/nxp-auto-linux/auto_yocto_bsp"
-PROJECT_DIRNAME=${PROJECT_DIRNAME:=fsl-image-auto-bsp}
+PROJECT_DIRNAME=${PROJECT_DIRNAME:=auto-bsp}
 
 # presync translations
 CAF_BSP="https://source.codeaurora.org/external/autobsps32"
@@ -62,7 +62,12 @@ GIT_CAF_QORIQ_SDK="git://source.codeaurora.org/external/qoriq/qoriq-yocto-sdk/"
 GIT_CAF_IMX="git://source.codeaurora.org/external/imx/"
 GIT_CAF_SJA="git://source.codeaurora.org/external/autoivnsw/sja1110_linux"
 GIT_CAF_IPC="git://source.codeaurora.org/external/autobsps32/ipcf/ipc-shm"
+GIT_CAF_PFE="git://source.codeaurora.org/external/autobsps32/extra/pfeng"
+GIT_CAF_SMDRV="git://source.codeaurora.org/external/autobsps32/extra/sm_drv"
 GIT_CAF_BSP="git://source.codeaurora.org/external/autobsps32"
+GIT_CAF_GCC63="https://source.codeaurora.org/external/s32ds/compiler/gnu_nxp/plain/"
+URL_LXC='http://linuxcontainers.org/downloads/${BPN}-${PV}.tar.gz'
+URL_LXC_NEW='http://linuxcontainers.org/downloads/${BPN}/${BPN}-${PV}.tar.gz'
 
 declare -A POSTSYNC_DICT=(
 	["$GIT_CAF_QORIQ"]="git://github.com/nxp-qoriq/" \
@@ -71,7 +76,10 @@ declare -A POSTSYNC_DICT=(
 	["$GIT_CAF_IMX"]="git://github.com/nxp-imx/" \
 	["$GIT_CAF_SJA"]="git://github.com/nxp-archive/autoivnsw_sja1110_linux" \
 	["$GIT_CAF_IPC"]="git://github.com/nxp-auto-linux/ipc-shm" \
+	["$GIT_CAF_PFE"]="git://github.com/nxp-auto-linux/pfeng" \
+	["$GIT_CAF_SMDRV"]="git://github.com/nxp-archive/autobsps32_sm_drv" \
 	["$GIT_CAF_BSP"]="git://github.com/nxp-auto-linux" \
+	["$GIT_CAF_GCC63"]="https://raw.githubusercontent.com/nxp-auto-tools/gnu_nxp/master/" \
 )
 
 declare -a POSTSYNC_KEYS_ORDER=(
@@ -81,7 +89,10 @@ declare -a POSTSYNC_KEYS_ORDER=(
 	"$GIT_CAF_IMX"
 	"$GIT_CAF_SJA"
 	"$GIT_CAF_IPC"
+	"$GIT_CAF_PFE"
+	"$GIT_CAF_SMDRV"
 	"$GIT_CAF_BSP"
+	"$GIT_CAF_GCC63"
 )
 
 ####### Migration steps #######
@@ -122,6 +133,7 @@ repo_init ()
 {
     echo "[INFO] Performing repo init..."
 	cd "$WORK_PATH/$PROJECT_DIRNAME" || exit 1
+    echo "[INFO] Using manifest \" "$MANIFEST" \"..."
     $REPO_CMD init -u $PROJECT_URL -b $RELEASE_BRANCH -m $MANIFEST
 	cd - || exit 1
     echo "[INFO] Finished repo init!"
@@ -163,8 +175,13 @@ repo_sync ()
 migrate_postsync ()
 {
 	echo "[INFO] Starting postsync migration!"
-	
-	local filelist=($(find "$WORK_PATH/$PROJECT_DIRNAME" -type f \( -name "*.bb*" -or -name "*.inc" \) \( -path "*/meta-alb/*" -or -path "*/meta-qoriq/*" -or -path "*/meta-freescale/*" -or -path "*/meta-vnp/*" -or -path "*/meta-qoriq-demos/*" \) ))
+
+	local filelist=($(find "$WORK_PATH/$PROJECT_DIRNAME" -type f \( -name "*.bb*" -or -name "*.inc" \) \( -path "*/meta-alb/*" -or -path "*/meta-qoriq/*" -or -path "*/meta-freescale/*" -or -path "*/meta-vnp/*" -or -path "*/meta-qoriq-demos/*" -or -path "*/meta-adas/*" \) ))
+	local gcc63="$WORK_PATH/$PROJECT_DIRNAME/sources/meta-alb/recipes-devtools/gcc/gcc-linaro-6.3-fsl.inc"
+
+	local lxc_path="dynamic-layers/virtualization-layer/recipes-containers/lxc"
+	local lxc_files=($(find "$WORK_PATH/$PROJECT_DIRNAME/sources/meta-alb" -type f \( -name "*.bbappend*" \) \( -path "*/$lxc_path/*" \) ))
+	local lxc_url=""
 
 	for file in "${filelist[@]}"
 	do
@@ -173,7 +190,26 @@ migrate_postsync ()
 			sed -i "s#${key}#${POSTSYNC_DICT[${key}]}#g" "$file"
 		done
 	done
-	
+
+	if [ -f "$gcc63" ]
+	then
+		echo -e '\nBB_STRICT_CHECKSUM = "0"\n' >> "$gcc63"
+	fi
+
+	# Patch only the LXC recipe bbappend
+	if [ -n "${lxc_files[0]}" ]
+	then
+		lxc_str="$(grep "$URL_LXC" ${lxc_files[0]})"
+	else
+		lxc_files=("$WORK_PATH/$PROJECT_DIRNAME/sources/meta-alb/$lxc_path/lxc_%.bbappend")
+	fi
+
+	if [ -z "$lxc_str" ]
+	then
+		echo 'SRC_URI_remove = "'$URL_LXC'"' >> "${lxc_files[0]}"
+		echo 'SRC_URI += "'$URL_LXC_NEW'"' >> "${lxc_files[0]}"
+	fi
+
 	echo "[INFO] Done postsync migration!"
 }
 
@@ -276,17 +312,24 @@ help_func ()
 
 			Mandatory arguments:
 
-			-p | --work_path	desired path for the 
-						$PROJECT_DIRNAME directory
+			-p | --work_path	<desired path for the
+						$PROJECT_DIRNAME directory>
 
-			-b | --release_branch	desired upstream 
-						release branch
+			-b | --release_branch	<desired upstream release branch>
+
+			Optional arguments:
+
+			-m | --manifest		<desired manifest file>
+				use a manifest file for the repo tool
+				different from the default one (default.xml)
 
 			Example usage:
 
-				$0 -f -p ./my_folder -b release/bsp33.0
+				$0 -f -p ./my_folder -b release/bsp33.0 [-m adas.xml]
 			or
-				$0 --full --work_path ./my_folder --release_branch release/bsp33.0
+				$0 --full --work_path ./my_folder
+					--release_branch release/bsp33.0
+					[--manifest adas.xml]
 
 	============================================================================
 
@@ -382,6 +425,11 @@ while [ ! -z "$1" ]; do
 			RELEASE_BRANCH="$2"
 			shift 2
 			;;
+		-m | --manifest )
+			MANIFEST="$2"
+			shift 2
+			;;
+
 		* )
 			if [ -z "$1" ]; then
 				break

@@ -1,0 +1,26 @@
+From 78df99233773380373fe5840b643b3c0988fce5a Mon Sep 17 00:00:00 2001
+From: Ionut Vicovan <Ionut.Vicovan@nxp.com>
+Date: Thu, 20 Apr 2023 00:25:41 +0300
+Subject: [PATCH] sm-drv: Update SRC_URI to github
+
+Signed-off-by: Ionut Vicovan <Ionut.Vicovan@nxp.com>
+---
+ recipes-kernel/sm-drv/sm-drv_1.0.bb | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/recipes-kernel/sm-drv/sm-drv_1.0.bb b/recipes-kernel/sm-drv/sm-drv_1.0.bb
+index efd3293..1c9e7bf 100644
+--- a/recipes-kernel/sm-drv/sm-drv_1.0.bb
++++ b/recipes-kernel/sm-drv/sm-drv_1.0.bb
+@@ -6,7 +6,7 @@ LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/GPL-2.0;md5=801f80980d171dd6425
+ 
+ inherit module
+ 
+-SRC_URI = "git://source.codeaurora.org/external/autobsps32/extra/sm_drv;branch=master;protocol=https"
++SRC_URI = "git://github.com/nxp-archive/autobsps32_sm_drv;branch=master;protocol=https"
+ SRCREV = "ccccea7629752e884c3226de9f255e246eeb9de1"
+ 
+ S = "${WORKDIR}/git/driver"
+-- 
+2.34.0
+

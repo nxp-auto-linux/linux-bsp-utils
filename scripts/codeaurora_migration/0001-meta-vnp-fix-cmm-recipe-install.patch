@@ -1,0 +1,28 @@
+From 730b9b817868ac46d7136694de62e45f16c65c31 Mon Sep 17 00:00:00 2001
+From: Ionut Vicovan <Ionut.Vicovan@nxp.com>
+Date: Thu, 20 Apr 2023 23:14:29 +0300
+Subject: [PATCH] meta-vnp: fix cmm recipe install
+
+Signed-off-by: Ionut Vicovan <Ionut.Vicovan@nxp.com>
+---
+ recipes-extended/cmm/cmm.bb | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/recipes-extended/cmm/cmm.bb b/recipes-extended/cmm/cmm.bb
+index a1c1c97..d5bc834 100644
+--- a/recipes-extended/cmm/cmm.bb
++++ b/recipes-extended/cmm/cmm.bb
+@@ -35,8 +35,8 @@ do_install() {
+     install -d ${D}${sysconfdir}
+     install -d ${D}${sysconfdir}/init.d/
+     install -d ${D}${sysconfdir}/config/
+-    install -m 755 ${WORKDIR}/build/src/.libs/cmm ${D}${bindir}/ 
+-    install -m 755 ${WORKDIR}/build/src/.libs/libcmm.so.0 ${D}${libdir}/ 
++    install -m 755 ${WORKDIR}/build/src/cmm ${D}${bindir}/
++    install -m 755 ${WORKDIR}/build/src/.libs/libcmm.so.0 ${D}${libdir}/
+     install -m 755 ${WORKDIR}/fastforward ${D}${sysconfdir}/config/fastforward
+     install -m 755 ${WORKDIR}/cmm ${D}${sysconfdir}/init.d/cmm
+ }
+-- 
+2.34.0
+
